@@ -86,15 +86,15 @@ class Atomwise(nn.Module):
     ):
         super(Atomwise, self).__init__()
 
-        self.n_layers = n_layers
-        self.create_graph = create_graph
-        self.property = property
+        self.n_layers      = n_layers
+        self.create_graph  = create_graph
+        self.property      = property
         self.contributions = contributions
-        self.derivative = derivative
-        self.negative_dr = negative_dr
-        self.stress = stress
+        self.derivative    = derivative
+        self.negative_dr   = negative_dr
+        self.stress        = stress
 
-        mean = torch.FloatTensor([0.0]) if mean is None else mean
+        mean   = torch.FloatTensor([0.0]) if mean is None else mean
         stddev = torch.FloatTensor([1.0]) if stddev is None else stddev
 
         # initialize single atom energies
@@ -118,10 +118,8 @@ class Atomwise(nn.Module):
         self.standardize = schnetpack.nn.base.ScaleShift(mean, stddev)
 
         # build aggregation layer
-        if aggregation_mode == "sum":
-            self.atom_pool = schnetpack.nn.base.Aggregate(axis=1, mean=False)
-        elif aggregation_mode == "avg":
-            self.atom_pool = schnetpack.nn.base.Aggregate(axis=1, mean=True)
+        if aggregation_mode == "sum":   self.atom_pool = schnetpack.nn.base.Aggregate(axis=1, mean=False)
+        elif aggregation_mode == "avg": self.atom_pool = schnetpack.nn.base.Aggregate(axis=1, mean=True)
         else:
             raise AtomwiseError(
                 "{} is not a valid aggregation " "mode!".format(aggregation_mode)
@@ -132,7 +130,7 @@ class Atomwise(nn.Module):
         predicts atomwise property
         """
         atomic_numbers = inputs[Properties.Z]
-        atom_mask = inputs[Properties.atom_mask]
+        atom_mask      = inputs[Properties.atom_mask]
 
         # run prediction
         yi = self.out_net(inputs)
@@ -147,17 +145,16 @@ class Atomwise(nn.Module):
         # collect results
         result = {self.property: y}
 
-        if self.contributions is not None:
-            result[self.contributions] = yi
+        if self.contributions is not None: result[self.contributions] = yi
 
         if self.derivative is not None:
             sign = -1.0 if self.negative_dr else 1.0
             dy = grad(
                 result[self.property],
                 inputs[Properties.R],
-                grad_outputs=torch.ones_like(result[self.property]),
-                create_graph=self.create_graph,
-                retain_graph=True,
+                grad_outputs = torch.ones_like(result[self.property]),
+                create_graph = self.create_graph,
+                retain_graph = True,
             )[0]
             result[self.derivative] = sign * dy
 
@@ -167,9 +164,9 @@ class Atomwise(nn.Module):
             stress = grad(
                 result[self.property],
                 inputs["displacement"],
-                grad_outputs=torch.ones_like(result[self.property]),
-                create_graph=self.create_graph,
-                retain_graph=True,
+                grad_outputs = torch.ones_like(result[self.property]),
+                create_graph = self.create_graph,
+                retain_graph = True,
             )[0]
             # Compute cell volume
             volume = torch.sum(
@@ -215,15 +212,15 @@ class DipoleMoment(Atomwise):
     def __init__(
         self,
         n_in,
-        n_layers=2,
-        n_neurons=None,
-        activation=schnetpack.nn.activations.shifted_softplus,
-        property="y",
-        contributions=None,
-        predict_magnitude=False,
-        mean=None,
-        stddev=None,
-        outnet=None,
+        n_layers          = 2,
+        n_neurons         = None,
+        activation        = schnetpack.nn.activations.shifted_softplus,
+        property          = "y",
+        contributions     = None,
+        predict_magnitude = False,
+        mean              = None,
+        stddev            = None,
+        outnet            = None,
     ):
         self.predict_magnitude = predict_magnitude
         super(DipoleMoment, self).__init__(
@@ -232,12 +229,12 @@ class DipoleMoment(Atomwise):
             "sum",
             n_layers,
             n_neurons,
-            activation=activation,
-            mean=mean,
-            stddev=stddev,
-            outnet=outnet,
-            property=property,
-            contributions=contributions,
+            activation    = activation,
+            mean          = mean,
+            stddev        = stddev,
+            outnet        = outnet,
+            property      = property,
+            contributions = contributions,
         )
 
     def forward(self, inputs):
@@ -252,14 +249,12 @@ class DipoleMoment(Atomwise):
         yi = positions * charges
         y = self.atom_pool(yi)
 
-        if self.predict_magnitude:
-            y = torch.norm(y, dim=1, keepdim=True)
+        if self.predict_magnitude: y = torch.norm(y, dim=1, keepdim=True)
 
         # collect results
         result = {self.property: y}
 
-        if self.contributions:
-            result[self.contributions] = charges
+        if self.contributions: result[self.contributions] = charges
 
         return result
 
@@ -301,47 +296,47 @@ class ElementalAtomwise(Atomwise):
 
     def __init__(
         self,
-        n_in=128,
-        n_out=1,
-        aggregation_mode="sum",
-        n_layers=3,
-        property="y",
-        derivative=None,
-        negative_dr=False,
-        contributions=None,
-        create_graph=True,
-        elements=frozenset((1, 6, 7, 8, 9)),
-        n_hidden=50,
-        activation=schnetpack.nn.activations.shifted_softplus,
-        mean=None,
-        stddev=None,
-        atomref=None,
+        n_in             = 128,
+        n_out            = 1,
+        aggregation_mode = "sum",
+        n_layers         =  3,
+        property         = "y",
+        derivative       = None,
+        negative_dr      = False,
+        contributions    = None,
+        create_graph     = True,
+        elements         = frozenset((1, 6, 7, 8, 9)),
+        n_hidden         = 50,
+        activation       = schnetpack.nn.activations.shifted_softplus,
+        mean             = None,
+        stddev           = None,
+        atomref          = None,
     ):
         outnet = schnetpack.nn.blocks.GatedNetwork(
             n_in,
             n_out,
             elements,
-            n_hidden=n_hidden,
-            n_layers=n_layers,
-            activation=activation,
+            n_hidden   = n_hidden,
+            n_layers   = n_layers,
+            activation = activation,
         )
 
         super(ElementalAtomwise, self).__init__(
-            n_in=n_in,
-            n_out=n_out,
-            aggregation_mode=aggregation_mode,
-            n_layers=n_layers,
-            n_neurons=None,
-            activation=activation,
-            property=property,
-            contributions=contributions,
-            derivative=derivative,
-            negative_dr=negative_dr,
-            create_graph=create_graph,
-            mean=mean,
-            stddev=stddev,
-            atomref=atomref,
-            outnet=outnet,
+            n_in             = n_in,
+            n_out            = n_out,
+            aggregation_mode = aggregation_mode,
+            n_layers         = n_layers,
+            n_neurons        = None,
+            activation       = activation,
+            property         = property,
+            contributions    = contributions,
+            derivative       = derivative,
+            negative_dr      = negative_dr,
+            create_graph     = create_graph,
+            mean             = mean,
+            stddev           = stddev,
+            atomref          = atomref,
+            outnet           = outnet,
         )
 
 
@@ -366,35 +361,35 @@ class ElementalDipoleMoment(DipoleMoment):
     def __init__(
         self,
         n_in,
-        n_out=1,
-        n_layers=3,
-        contributions=False,
-        property="y",
-        predict_magnitude=False,
-        elements=frozenset((1, 6, 7, 8, 9)),
-        n_hidden=50,
-        activation=schnetpack.nn.activations.shifted_softplus,
-        mean=None,
-        stddev=None,
+        n_out             = 1,
+        n_layers          = 3,
+        contributions     = False,
+        property          = "y",
+        predict_magnitude = False,
+        elements          = frozenset((1, 6, 7, 8, 9)),
+        n_hidden          = 50,
+        activation        = schnetpack.nn.activations.shifted_softplus,
+        mean              = None,
+        stddev            = None,
     ):
         outnet = schnetpack.nn.blocks.GatedNetwork(
             n_in,
             n_out,
             elements,
-            n_hidden=n_hidden,
-            n_layers=n_layers,
-            activation=activation,
+            n_hidden   = n_hidden,
+            n_layers   = n_layers,
+            activation = activation,
         )
 
         super(ElementalDipoleMoment, self).__init__(
             n_in,
             n_layers,
             None,
-            activation=activation,
-            property=property,
-            contributions=contributions,
-            outnet=outnet,
-            predict_magnitude=predict_magnitude,
+            activation        = activation,
+            property          = property,
+            contributions     = contributions,
+            outnet            = outnet,
+            predict_magnitude = predict_magnitude,
             mean=mean,
             stddev=stddev,
         )
@@ -431,39 +426,39 @@ class Polarizability(Atomwise):
 
     def __init__(
         self,
-        n_in=128,
-        aggregation_mode="sum",
-        n_layers=2,
-        n_neurons=None,
-        activation=L.shifted_softplus,
-        property="y",
-        isotropic=False,
-        create_graph=True,
-        outnet=None,
-        cutoff_network=None,
+        n_in             = 128,
+        aggregation_mode = "sum",
+        n_layers         = 2,
+        n_neurons        = None,
+        activation       = L.shifted_softplus,
+        property         = "y",
+        isotropic        = False,
+        create_graph     = True,
+        outnet           = None,
+        cutoff_network   = None,
     ):
         super(Polarizability, self).__init__(
-            n_in=n_in,
-            n_out=2,
-            n_layers=n_layers,
-            aggregation_mode=aggregation_mode,
-            n_neurons=n_neurons,
-            activation=activation,
-            property=property,
-            derivative=None,
-            create_graph=create_graph,
-            outnet=outnet,
+            n_in             = n_in,
+            n_out            = 2,
+            n_layers         = n_layers,
+            aggregation_mode = aggregation_mode,
+            n_neurons        = n_neurons,
+            activation       = activation,
+            property         = property,
+            derivative       = None,
+            create_graph     = create_graph,
+            outnet           = outnet,
         )
         self.isotropic = isotropic
-        self.nbh_agg = L.Aggregate(2)
-        self.atom_agg = L.Aggregate(1)
+        self.nbh_agg   = L.Aggregate(2)
+        self.atom_agg  = L.Aggregate(1)
 
         self.cutoff_network = cutoff_network
 
     def forward(self, inputs):
         positions = inputs[Properties.R]
         neighbors = inputs[Properties.neighbors]
-        nbh_mask = inputs[Properties.neighbor_mask]
+        nbh_mask  = inputs[Properties.neighbor_mask]
         atom_mask = inputs[Properties.atom_mask]
 
         # Get environment distances and positions
@@ -495,8 +490,8 @@ class Polarizability(Atomwise):
             dist_vecs * neighbor_contributions2[..., None] / masked_dist[..., None]
         )
         atomic_fields = self.nbh_agg(nbh_fields, nbh_mask)
-        field_norm = torch.norm(atomic_fields, dim=-1, keepdim=True)
-        field_norm = field_norm + (field_norm < 1e-10).float()
+        field_norm    = torch.norm(atomic_fields, dim=-1, keepdim=True)
+        field_norm    = field_norm + (field_norm < 1e-10).float()
         atomic_fields = atomic_fields / field_norm
 
         atomic_polar = atomic_dipoles[..., None] * atomic_fields[:, :, None, :]
@@ -523,7 +518,7 @@ def symmetric_product(tensor):
     Symmetric outer product of tensor
     """
     shape = tensor.size()
-    idx = list(range(len(shape)))
+    idx   = list(range(len(shape)))
     idx[-1], idx[-2] = idx[-2], idx[-1]
     return 0.5 * (tensor + tensor.permute(*idx))
 

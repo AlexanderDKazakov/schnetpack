@@ -42,8 +42,7 @@ class Dense(nn.Linear):
     def reset_parameters(self):
         """Reinitialize model weight and bias values."""
         self.weight_init(self.weight)
-        if self.bias is not None:
-            self.bias_init(self.bias)
+        if self.bias is not None: self.bias_init(self.bias)
 
     def forward(self, inputs):
         """Compute layer output.
@@ -58,8 +57,7 @@ class Dense(nn.Linear):
         # compute linear layer y = xW^T + b
         y = super(Dense, self).forward(inputs)
         # add activation function
-        if self.activation:
-            y = self.activation(y)
+        if self.activation: y = self.activation(y)
         return y
 
 

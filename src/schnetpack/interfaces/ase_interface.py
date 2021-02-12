@@ -13,22 +13,22 @@ References
 
 import os
 
-from schnetpack.data.atoms import AtomsConverter
+from schnetpack.data.atoms      import AtomsConverter
 from schnetpack.utils.spk_utils import DeprecationHelper
-from schnetpack import Properties
+from schnetpack                 import Properties
 
 from ase import units
-from ase.calculators.calculator import Calculator, all_changes
-from ase.io import read, write
-from ase.io.trajectory import Trajectory
-from ase.io.xyz import read_xyz, write_xyz
-from ase.md import VelocityVerlet, Langevin, MDLogger
+from ase.calculators.calculator  import Calculator, all_changes
+from ase.io                      import read, write
+from ase.io.trajectory           import Trajectory
+from ase.io.xyz                  import read_xyz, write_xyz
+from ase.md                      import VelocityVerlet, Langevin, MDLogger
 from ase.md.velocitydistribution import (
     MaxwellBoltzmannDistribution,
     Stationary,
     ZeroRotation,
 )
-from ase.optimize import QuasiNewton
+from ase.optimize   import QuasiNewton
 from ase.vibrations import Vibrations
 
 from schnetpack.md.utils import MDUnits
@@ -64,15 +64,15 @@ class SpkCalculator(Calculator):
     def __init__(
         self,
         model,
-        device="cpu",
-        collect_triples=False,
-        environment_provider=SimpleEnvironmentProvider(),
-        energy=None,
-        forces=None,
-        stress=None,
-        energy_units="eV",
-        forces_units="eV/Angstrom",
-        stress_units="eV/Angstrom/Angstrom/Angstrom",
+        device               = "cpu",
+        collect_triples      = False,
+        environment_provider = SimpleEnvironmentProvider(),
+        energy               = None,
+        forces               = None,
+        stress               = None,
+        energy_units         = "eV",
+        forces_units         = "eV/Angstrom",
+        stress_units         = "eV/Angstrom/Angstrom/Angstrom",
         **kwargs
     ):
         Calculator.__init__(self, **kwargs)
@@ -81,14 +81,14 @@ class SpkCalculator(Calculator):
         self.model.to(device)
 
         self.atoms_converter = AtomsConverter(
-            environment_provider=environment_provider,
-            collect_triples=collect_triples,
-            device=device,
+            environment_provider = environment_provider,
+            collect_triples      = collect_triples,
+            device               = device,
         )
 
-        self.model_energy = energy
-        self.model_forces = forces
-        self.model_stress = stress
+        self.model_energy = energy  # str
+        self.model_forces = forces  # str
+        self.model_stress = stress  # str
 
         # Convert to ASE internal units
         # MDUnits parses the given energy units and converts them to atomic units as the common denominator.
@@ -119,41 +119,25 @@ class SpkCalculator(Calculator):
             results = {}
             # Convert outputs to calculator format
             if self.model_energy is not None:
-                if self.model_energy not in model_results.keys():
-                    raise SpkCalculatorError(
-                        "'{}' is not a property of your model. Please "
-                        "check the model "
-                        "properties!".format(self.model_energy)
-                    )
+                if self.model_energy not in model_results.keys():   # str in keys
+                    raise SpkCalculatorError("'{}' is not a property of your model. Please check the model properties!".format(self.model_energy))
                 energy = model_results[self.model_energy].cpu().data.numpy()
-                results[self.energy] = (
-                    energy.item() * self.energy_units
-                )  # ase calculator should return scalar energy
+                results[self.energy] = (energy.item() * self.energy_units)  # ase calculator should return scalar energy
 
             if self.model_forces is not None:
                 if self.model_forces not in model_results.keys():
-                    raise SpkCalculatorError(
-                        "'{}' is not a property of your model. Please "
-                        "check the model"
-                        "properties!".format(self.model_forces)
-                    )
+                    raise SpkCalculatorError("'{}' is not a property of your model. Please check the model properties!".format(self.model_forces))
                 forces = model_results[self.model_forces].cpu().data.numpy()
-                results[self.forces] = (
-                    forces.reshape((len(atoms), 3)) * self.forces_units
-                )
+                results[self.forces] = (forces.reshape((len(atoms), 3)) * self.forces_units)
 
             if self.model_stress is not None:
                 if atoms.cell.volume <= 0.0:
-                    raise SpkCalculatorError(
-                        "Cell with 0 volume encountered for stress computation"
-                    )
+                    raise SpkCalculatorError("Cell with 0 volume encountered for stress computation")
 
                 if self.model_stress not in model_results.keys():
                     raise SpkCalculatorError(
-                        "'{}' is not a property of your model. Please "
-                        "check the model"
-                        "properties! If desired, stress tensor computation can be "
-                        "activated via schnetpack.utils.activate_stress_computation "
+                        "'{}' is not a property of your model. Please check the model properties!"
+                        " If desired, stress tensor computation can be activated via schnetpack.utils.activate_stress_computation "
                         "at ones own risk.".format(self.model_stress)
                     )
                 stress = model_results[self.model_stress].cpu().data.numpy()
@@ -178,17 +162,16 @@ class AseInterface:
         molecule_path,
         ml_model,
         working_dir,
-        device="cpu",
-        energy="energy",
-        forces="forces",
-        energy_units="eV",
-        forces_units="eV/Angstrom",
-        environment_provider=SimpleEnvironmentProvider(),
+        device               = "cpu",
+        energy               = "energy",
+        forces               = "forces",
+        energy_units         = "eV",
+        forces_units         = "eV/Angstrom",
+        environment_provider = SimpleEnvironmentProvider(),
     ):
         # Setup directory
         self.working_dir = working_dir
-        if not os.path.exists(self.working_dir):
-            os.makedirs(self.working_dir)
+        if not os.path.exists(self.working_dir): os.makedirs(self.working_dir)
 
         # Load the molecule
         self.molecule = None
@@ -197,12 +180,12 @@ class AseInterface:
         # Set up calculator
         calculator = SpkCalculator(
             ml_model,
-            device=device,
-            energy=energy,
-            forces=forces,
-            energy_units=energy_units,
-            forces_units=forces_units,
-            environment_provider=environment_provider,
+            device               = device,
+            energy               = energy,
+            forces               = forces,
+            energy_units         = energy_units,
+            forces_units         = forces_units,
+            environment_provider = environment_provider,
         )
         self.molecule.set_calculator(calculator)
 
@@ -217,10 +200,8 @@ class AseInterface:
             molecule_path (str): Path to molecular geometry
         """
         file_format = os.path.splitext(molecule_path)[-1]
-        if file_format == "xyz":
-            self.molecule = read_xyz(molecule_path)
-        else:
-            self.molecule = read(molecule_path)
+        if file_format == "xyz": self.molecule = read_xyz(molecule_path)
+        else:                    self.molecule = read(molecule_path)
 
     def save_molecule(self, name, file_format="xyz", append=False):
         """
@@ -233,22 +214,20 @@ class AseInterface:
                 (default False).
         """
         molecule_path = os.path.join(self.working_dir, "%s.%s" % (name, file_format))
-        if file_format == "xyz":
-            # For extended xyz format, plain is needed since ase can not parse
-            # the extxyz it writes
-            write_xyz(molecule_path, self.molecule, plain=True)
-        else:
-            write(molecule_path, self.molecule, format=file_format, append=append)
+
+        # For extended xyz format, plain is needed since ase can not parse the extxyz it writes
+        if file_format == "xyz": write_xyz(molecule_path, self.molecule, plain=True)
+        else:                    write(molecule_path, self.molecule, format=file_format, append=append)
 
     def calculate_single_point(self):
         """
         Perform a single point computation of the energies and forces and
         store them to the working directory. The format used is the extended
-        xyz format. This functionality is mainly intended to be used for
-        interfaces.
+        xyz format. 
+        -> This functionality is mainly intended to be used for interfaces.
         """
-        energy = self.molecule.get_potential_energy()
-        forces = self.molecule.get_forces()
+        energy               = self.molecule.get_potential_energy()
+        forces               = self.molecule.get_forces()
         self.molecule.energy = energy
         self.molecule.forces = forces
 
@@ -257,11 +236,11 @@ class AseInterface:
     def init_md(
         self,
         name,
-        time_step=0.5,
-        temp_init=300,
-        temp_bath=None,
-        reset=False,
-        interval=1,
+        time_step = 0.5,
+        temp_init = 300,
+        temp_bath = None,
+        reset     = False,
+        interval  = 1,
     ):
         """
         Initialize an ase molecular dynamics trajectory. The logfile needs to
@@ -284,31 +263,23 @@ class AseInterface:
 
         # If a previous dynamics run has been performed, don't reinitialize
         # velocities unless explicitly requested via restart=True
-        if not self.dynamics or reset:
-            self._init_velocities(temp_init=temp_init)
+        if not self.dynamics or reset: self._init_velocities(temp_init=temp_init)
 
         # Set up dynamics
-        if temp_bath is None:
-            self.dynamics = VelocityVerlet(self.molecule, time_step * units.fs)
-        else:
-            self.dynamics = Langevin(
-                self.molecule,
-                time_step * units.fs,
-                temp_bath * units.kB,
-                1.0 / (100.0 * units.fs),
-            )
+        if temp_bath is None: self.dynamics = VelocityVerlet(self.molecule, time_step * units.fs)
+        else:                 self.dynamics = Langevin(self.molecule, time_step * units.fs, temp_bath * units.kB, 1.0 / (100.0 * units.fs),)
 
         # Create monitors for logfile and a trajectory file
-        logfile = os.path.join(self.working_dir, "%s.log" % name)
+        logfile  = os.path.join(self.working_dir, "%s.log" % name)
         trajfile = os.path.join(self.working_dir, "%s.traj" % name)
-        logger = MDLogger(
-            self.dynamics,
-            self.molecule,
-            logfile,
-            stress=False,
-            peratom=False,
-            header=True,
-            mode="a",
+        logger   = MDLogger(
+                        self.dynamics,
+                        self.molecule,
+                        logfile,
+                        stress  = False,
+                        peratom = False,
+                        header  = True,
+                        mode    = "a",
         )
         trajectory = Trajectory(trajfile, "w", self.molecule)
 
@@ -317,7 +288,10 @@ class AseInterface:
         self.dynamics.attach(trajectory.write, interval=interval)
 
     def _init_velocities(
-        self, temp_init=300, remove_translation=True, remove_rotation=True
+        self, 
+        temp_init          = 300, 
+        remove_translation = True, 
+        remove_rotation    = True
     ):
         """
         Initialize velocities for molecular dynamics
@@ -330,10 +304,8 @@ class AseInterface:
                 (default True)
         """
         MaxwellBoltzmannDistribution(self.molecule, temp_init * units.kB)
-        if remove_translation:
-            Stationary(self.molecule)
-        if remove_rotation:
-            ZeroRotation(self.molecule)
+        if remove_translation: Stationary(self.molecule)
+        if remove_rotation:    ZeroRotation(self.molecule)
 
     def run_md(self, steps):
         """
@@ -343,10 +315,7 @@ class AseInterface:
         Args:
             steps (int): Number of simulation steps performed
         """
-        if not self.dynamics:
-            raise AttributeError(
-                "Dynamics need to be initialized using the" " 'setup_md' function"
-            )
+        if not self.dynamics: raise AttributeError("Dynamics need to be initialized using the" " 'setup_md' function")
 
         self.dynamics.run(steps)
 
@@ -359,13 +328,13 @@ class AseInterface:
             fmax (float): Maximum residual force change (default 1.e-2)
             steps (int): Maximum number of steps (default 1000)
         """
-        name = "optimization"
+        name          = "optimization"
         optimize_file = os.path.join(self.working_dir, name)
-        optimizer = QuasiNewton(
-            self.molecule,
-            trajectory="%s.traj" % optimize_file,
-            restart="%s.pkl" % optimize_file,
-        )
+        optimizer     = QuasiNewton(
+                            self.molecule,
+                            trajectory="%s.traj" % optimize_file,
+                            restart="%s.pkl" % optimize_file,
+                            )
         optimizer.run(fmax, steps)
 
         # Save final geometry in xyz format
@@ -389,8 +358,7 @@ class AseInterface:
         frequencies.summary()
 
         # Write jmol file if requested
-        if write_jmol:
-            frequencies.write_jmol()
+        if write_jmol: frequencies.write_jmol()
 
 
 MLPotential = DeprecationHelper(SpkCalculator, "MLPotential")

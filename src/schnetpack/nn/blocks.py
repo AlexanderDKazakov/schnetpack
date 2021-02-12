@@ -27,7 +27,12 @@ class MLP(nn.Module):
     """
 
     def __init__(
-        self, n_in, n_out, n_hidden=None, n_layers=2, activation=shifted_softplus
+        self, 
+        n_in, 
+        n_out, 
+        n_hidden  = None, 
+        n_layers  = 2, 
+        activation= shifted_softplus
     ):
         super(MLP, self).__init__()
         # get list of number of nodes in input, hidden & output layers
@@ -40,8 +45,7 @@ class MLP(nn.Module):
             self.n_neurons.append(n_out)
         else:
             # get list of number of nodes hidden layers
-            if type(n_hidden) is int:
-                n_hidden = [n_hidden] * (n_layers - 1)
+            if type(n_hidden) is int: n_hidden = [n_hidden] * (n_layers - 1)
             self.n_neurons = [n_in] + n_hidden + [n_out]
 
         # assign a Dense layer (with activation function) to each hidden layer

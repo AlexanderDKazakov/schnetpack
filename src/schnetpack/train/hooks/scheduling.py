@@ -8,59 +8,57 @@ class EarlyStoppingHook(Hook):
     r"""Hook to stop training if validation loss fails to improve.
 
     Args:
-        patience (int): number of epochs which can pass without improvement
-            of validation loss before training ends.
-        threshold_ratio (float, optional): counter increases if
-            curr_val_loss > (1-threshold_ratio) * best_loss
+        patience (int): number of epochs which can pass without improvement of validation loss before training ends.
+        threshold_ratio (float, optional): counter increases if curr_val_loss > (1-threshold_ratio) * best_loss
 
     """
 
     def __init__(self, patience, threshold_ratio=0.0001):
-        self.best_loss = float("Inf")
-        self.counter = 0
+        self.best_loss       = float("Inf")
+        self.counter         = 0
         self.threshold_ratio = threshold_ratio
-        self.patience = patience
+        self.patience        = patience
 
     @property
-    def state_dict(self):
-        return {"counter": self.counter}
+    def state_dict(self): return {"counter": self.counter}
 
     @state_dict.setter
-    def state_dict(self, state_dict):
-        self.counter = state_dict["counter"]
+    def state_dict(self, state_dict): self.counter = state_dict["counter"]
 
     def on_validation_end(self, trainer, val_loss):
-        if val_loss > (1 - self.threshold_ratio) * self.best_loss:
-            self.counter += 1
+        if val_loss > (1 - self.threshold_ratio) * self.best_loss: self.counter += 1
         else:
             self.best_loss = val_loss
-            self.counter = 0
+            self.counter   = 0
 
-        if self.counter > self.patience:
-            trainer._stop = True
+        if self.counter > self.patience: trainer._stop = True
 
 
 class WarmRestartHook(Hook):
     def __init__(
-        self, T0=10, Tmult=2, each_step=False, lr_min=1e-6, lr_factor=1.0, patience=1
+        self, 
+        T0        = 10, 
+        Tmult     = 2, 
+        each_step = False, 
+        lr_min    = 1e-6, 
+        lr_factor = 1.0, 
+        patience  = 1
     ):
         self.scheduler = None
         self.each_step = each_step
-        self.T0 = T0
-        self.Tmult = Tmult
-        self.Tmax = T0
-        self.lr_min = lr_min
+        self.T0        = T0
+        self.Tmult     = Tmult
+        self.Tmax      = T0
+        self.lr_min    = lr_min
         self.lr_factor = lr_factor
-        self.patience = patience
-        self.waiting = 0
+        self.patience  = patience
+        self.waiting   = 0
 
         self.best_previous = float("Inf")
-        self.best_current = float("Inf")
+        self.best_current  = float("Inf")
 
     def on_train_begin(self, trainer):
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            trainer.optimizer, self.Tmax, self.lr_min
-        )
+        self.scheduler      = torch.optim.lr_scheduler.CosineAnnealingLR( trainer.optimizer, self.Tmax, self.lr_min)
         self.init_opt_state = trainer.optimizer.state_dict()
 
     def on_batch_begin(self, trainer, train_batch):
@@ -71,8 +69,7 @@ class WarmRestartHook(Hook):
             train_batch (dict of torch.Tensor): SchNetPack dictionary of input tensors.
 
         """
-        if self.each_step:
-            self.scheduler.step()
+        if self.each_step: self.scheduler.step()
 
     def on_epoch_begin(self, trainer):
         """Log at the beginning of train epoch.
@@ -81,30 +78,24 @@ class WarmRestartHook(Hook):
             trainer (Trainer): instance of schnetpack.train.trainer.Trainer class.
 
         """
-        if not self.each_step:
-            self.scheduler.step()
+        if not self.each_step: self.scheduler.step()
 
     def on_validation_end(self, trainer, val_loss):
-        if self.best_current > val_loss:
-            self.best_current = val_loss
+        if self.best_current > val_loss: self.best_current = val_loss
 
         if self.scheduler.last_epoch >= self.Tmax:
-            self.Tmax *= self.Tmult
+            self.Tmax                *= self.Tmult
             self.scheduler.last_epoch = -1
-            self.scheduler.T_max = self.Tmax
-            self.scheduler.base_lrs = [
-                base_lr * self.lr_factor for base_lr in self.scheduler.base_lrs
-            ]
+            self.scheduler.T_max      = self.Tmax
+            self.scheduler.base_lrs   = [base_lr * self.lr_factor for base_lr in self.scheduler.base_lrs]
             trainer.optimizer.load_state_dict(self.init_opt_state)
 
-            if self.best_current >= self.best_previous:
-                self.waiting += 1
+            if self.best_current >= self.best_previous: self.waiting += 1
             else:
-                self.waiting = 0
+                self.waiting       = 0
                 self.best_previous = self.best_current
 
-            if self.waiting > self.patience:
-                trainer._stop = True
+            if self.waiting > self.patience: trainer._stop = True
 
 
 class MaxEpochHook(Hook):
@@ -126,8 +117,7 @@ class MaxEpochHook(Hook):
 
         """
         # stop training if max_epochs is reached
-        if trainer.epoch > self.max_epochs:
-            trainer._stop = True
+        if trainer.epoch > self.max_epochs: trainer._stop = True
 
 
 class MaxStepHook(Hook):
@@ -150,8 +140,7 @@ class MaxStepHook(Hook):
 
         """
         # stop training if max_steps is reached
-        if trainer.step > self.max_steps:
-            trainer._stop = True
+        if trainer.step > self.max_steps: trainer._stop = True
 
 
 class LRScheduleHook(Hook):
@@ -171,15 +160,12 @@ class LRScheduleHook(Hook):
         self.each_step = each_step
 
     @property
-    def state_dict(self):
-        return {"scheduler": self.scheduler.state_dict()}
+    def state_dict(self): return {"scheduler": self.scheduler.state_dict()}
 
     @state_dict.setter
-    def state_dict(self, state_dict):
-        self.scheduler.load_state_dict(state_dict["scheduler"])
+    def state_dict(self, state_dict):  self.scheduler.load_state_dict(state_dict["scheduler"])
 
-    def on_train_begin(self, trainer):
-        self.scheduler.last_epoch = trainer.epoch - 1
+    def on_train_begin(self, trainer): self.scheduler.last_epoch = trainer.epoch - 1
 
     def on_batch_begin(self, trainer, train_batch):
         """Log at the beginning of train batch.
@@ -189,8 +175,7 @@ class LRScheduleHook(Hook):
             train_batch (dict of torch.Tensor): SchNetPack dictionary of input tensors.
 
         """
-        if self.each_step:
-            self.scheduler.step()
+        if self.each_step: self.scheduler.step()
 
     def on_epoch_begin(self, trainer):
         """Log at the beginning of train epoch.
@@ -199,8 +184,7 @@ class LRScheduleHook(Hook):
             trainer (Trainer): instance of schnetpack.train.trainer.Trainer class.
 
         """
-        if not self.each_step:
-            self.scheduler.step()
+        if not self.each_step: self.scheduler.step()
 
 
 class ReduceLROnPlateauHook(Hook):
@@ -230,34 +214,29 @@ class ReduceLROnPlateauHook(Hook):
     def __init__(
         self,
         optimizer,
-        patience=25,
-        factor=0.5,
-        min_lr=1e-6,
-        window_length=1,
-        stop_after_min=False,
+        patience       = 25,
+        factor         = 0.5,
+        min_lr         = 1e-6,
+        window_length  = 1,
+        stop_after_min = False,
     ):
-        self.patience = patience
-        self.factor = factor
-        self.min_lr = min_lr
-        self.scheduler = ReduceLROnPlateau(
-            optimizer, patience=self.patience, factor=self.factor, min_lr=self.min_lr
-        )
-        self.window_length = window_length
+        self.patience       = patience
+        self.factor         = factor
+        self.min_lr         = min_lr
+        self.scheduler      = ReduceLROnPlateau(optimizer, patience=self.patience, factor=self.factor, min_lr=self.min_lr)
+        self.window_length  = window_length
         self.stop_after_min = stop_after_min
-        self.window = []
+        self.window         = []
 
     @property
-    def state_dict(self):
-        return {"scheduler": self.scheduler}
+    def state_dict(self): return {"scheduler": self.scheduler}
 
     @state_dict.setter
-    def state_dict(self, state_dict):
-        self.scheduler = state_dict["scheduler"]
+    def state_dict(self, state_dict): self.scheduler = state_dict["scheduler"]
 
     def on_validation_end(self, trainer, val_loss):
         self.window.append(val_loss)
-        if len(self.window) > self.window_length:
-            self.window.pop(0)
+        if len(self.window) > self.window_length: self.window.pop(0)
         accum_loss = np.mean(self.window)
 
         self.scheduler.step(accum_loss)
@@ -265,8 +244,7 @@ class ReduceLROnPlateauHook(Hook):
         if self.stop_after_min:
             for i, param_group in enumerate(self.scheduler.optimizer.param_groups):
                 old_lr = float(param_group["lr"])
-                if old_lr <= self.scheduler.min_lrs[i]:
-                    trainer._stop = True
+                if old_lr <= self.scheduler.min_lrs[i]: trainer._stop = True
 
 
 class ExponentialDecayHook(Hook):

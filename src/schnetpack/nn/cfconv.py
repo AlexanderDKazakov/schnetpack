@@ -36,11 +36,11 @@ class CFConv(nn.Module):
         axis=2,
     ):
         super(CFConv, self).__init__()
-        self.in2f = Dense(n_in, n_filters, bias=False, activation=None)
-        self.f2out = Dense(n_filters, n_out, bias=True, activation=activation)
+        self.in2f           = Dense(n_in, n_filters, bias=False, activation=None)
+        self.f2out          = Dense(n_filters, n_out, bias=True, activation=activation)
         self.filter_network = filter_network
         self.cutoff_network = cutoff_network
-        self.agg = Aggregate(axis=axis, mean=normalize_filter)
+        self.agg            = Aggregate(axis=axis, mean=normalize_filter)
 
     def forward(self, x, r_ij, neighbors, pairwise_mask, f_ij=None):
         """Compute convolution block.
@@ -59,8 +59,7 @@ class CFConv(nn.Module):
             torch.Tensor: block output with (N_b, N_a, n_out) shape.
 
         """
-        if f_ij is None:
-            f_ij = r_ij.unsqueeze(-1)
+        if f_ij is None: f_ij = r_ij.unsqueeze(-1)
 
         # pass expanded interactomic distances through filter block
         W = self.filter_network(f_ij)
