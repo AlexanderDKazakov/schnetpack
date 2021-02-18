@@ -7,7 +7,6 @@ with periodic boundary conditions and does not possess optimal scaling for large
 
 import torch
 
-
 class MDNeighborList:
     """
     Basic neighbor list template for molecular dynamics simulations required for the calculator. This is used to obtain

@@ -137,34 +137,32 @@ class AtomsLoader(DataLoader):
     def __init__(
         self,
         dataset,
-        batch_size=1,
-        shuffle=False,
-        sampler=None,
-        batch_sampler=None,
-        num_workers=0,
-        collate_fn=_collate_aseatoms,
-        pin_memory=False,
-        drop_last=False,
-        timeout=0,
-        worker_init_fn=None,
+        batch_size     = 1,
+        shuffle        = False,
+        sampler        = None,
+        batch_sampler  = None,
+        num_workers    = 0,
+        collate_fn     = _collate_aseatoms,
+        pin_memory     = False,
+        drop_last      = False,
+        timeout        = 0,
+        worker_init_fn = None,
     ):
         super(AtomsLoader, self).__init__(
-            dataset=dataset,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            sampler=sampler,
-            batch_sampler=batch_sampler,
-            num_workers=num_workers,
-            collate_fn=collate_fn,
-            pin_memory=pin_memory,
-            drop_last=drop_last,
-            timeout=timeout,
-            worker_init_fn=worker_init_fn,
+            dataset        = dataset,
+            batch_size     = batch_size,
+            shuffle        = shuffle,
+            sampler        = sampler,
+            batch_sampler  = batch_sampler,
+            num_workers    = num_workers,
+            collate_fn     = collate_fn,
+            pin_memory     = pin_memory,
+            drop_last      = drop_last,
+            timeout        = timeout,
+            worker_init_fn = worker_init_fn,
         )
 
-    def get_statistics(
-        self, property_names, divide_by_atoms=False, single_atom_ref=None
-    ):
+    def get_statistics(self, property_names, divide_by_atoms=False, single_atom_ref=None):
         """
         Compute mean and variance of a property. Uses the incremental Welford
         algorithm implemented in StatisticsAccumulator
@@ -182,17 +180,12 @@ class AtomsLoader(DataLoader):
             stddev: Standard deviation
 
         """
-        if type(property_names) is not list:
-            property_names = [property_names]
-        if type(divide_by_atoms) is not dict:
-            divide_by_atoms = {prop: divide_by_atoms for prop in property_names}
-        if single_atom_ref is None:
-            single_atom_ref = {prop: None for prop in property_names}
+        if type(property_names) is not list:   property_names  = [property_names]
+        if type(divide_by_atoms) is not dict:  divide_by_atoms = {prop: divide_by_atoms for prop in property_names}
+        if single_atom_ref is None:            single_atom_ref = {prop: None for prop in property_names}
 
         with torch.no_grad():
-            statistics = {
-                prop: StatisticsAccumulator(batch=True) for prop in property_names
-            }
+            statistics = {prop: StatisticsAccumulator(batch=True) for prop in property_names}
             logger.info("statistics will be calculated...")
 
             for row in self:
@@ -205,14 +198,12 @@ class AtomsLoader(DataLoader):
                         statistics[prop],
                     )
 
-            means = {prop: s.get_mean() for prop, s in statistics.items()}
+            means   = {prop: s.get_mean()   for prop, s in statistics.items()}
             stddevs = {prop: s.get_stddev() for prop, s in statistics.items()}
 
         return means, stddevs
 
-    def _update_statistic(
-        self, divide_by_atoms, single_atom_ref, property_name, row, statistics
-    ):
+    def _update_statistic(self, divide_by_atoms, single_atom_ref, property_name, row, statistics):
         """
         Helper function to update iterative mean / stddev statistics
         """
@@ -221,6 +212,6 @@ class AtomsLoader(DataLoader):
             z = row["_atomic_numbers"]
             p0 = torch.sum(torch.from_numpy(single_atom_ref[z]).float(), dim=1)
             property_value -= p0
-        if divide_by_atoms:
-            property_value /= torch.sum(row["_atom_mask"], dim=1, keepdim=True)
+        
+        if divide_by_atoms: property_value /= torch.sum(row["_atom_mask"], dim=1, keepdim=True)
         statistics.add_sample(property_value)

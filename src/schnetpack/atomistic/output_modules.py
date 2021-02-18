@@ -68,21 +68,21 @@ class Atomwise(nn.Module):
     def __init__(
         self,
         n_in,
-        n_out=1,
-        aggregation_mode="sum",
-        n_layers=2,
-        n_neurons=None,
-        activation=schnetpack.nn.activations.shifted_softplus,
-        property="y",
-        contributions=None,
-        derivative=None,
-        negative_dr=False,
-        stress=None,
-        create_graph=True,
-        mean=None,
-        stddev=None,
-        atomref=None,
-        outnet=None,
+        n_out            = 1,
+        aggregation_mode = "sum",
+        n_layers         = 2,
+        n_neurons        = None,
+        activation       = schnetpack.nn.activations.shifted_softplus,
+        property         = "y",
+        contributions    = None,
+        derivative       = None,
+        negative_dr      = False,
+        stress           = None,
+        create_graph     = True,
+        mean             = None,
+        stddev           = None,
+        atomref          = None,
+        outnet           = None,
     ):
         super(Atomwise, self).__init__()
 
@@ -94,7 +94,7 @@ class Atomwise(nn.Module):
         self.negative_dr   = negative_dr
         self.stress        = stress
 
-        mean   = torch.FloatTensor([0.0]) if mean is None else mean
+        mean   = torch.FloatTensor([0.0]) if mean   is None else mean
         stddev = torch.FloatTensor([1.0]) if stddev is None else stddev
 
         # initialize single atom energies
@@ -118,7 +118,7 @@ class Atomwise(nn.Module):
         self.standardize = schnetpack.nn.base.ScaleShift(mean, stddev)
 
         # build aggregation layer
-        if aggregation_mode == "sum":   self.atom_pool = schnetpack.nn.base.Aggregate(axis=1, mean=False)
+        if   aggregation_mode == "sum": self.atom_pool = schnetpack.nn.base.Aggregate(axis=1, mean=False)
         elif aggregation_mode == "avg": self.atom_pool = schnetpack.nn.base.Aggregate(axis=1, mean=True)
         else:
             raise AtomwiseError(
@@ -217,12 +217,14 @@ class DipoleMoment(Atomwise):
         activation        = schnetpack.nn.activations.shifted_softplus,
         property          = "y",
         contributions     = None,
+        charge_correction = None,
         predict_magnitude = False,
         mean              = None,
         stddev            = None,
         outnet            = None,
     ):
         self.predict_magnitude = predict_magnitude
+        self.charge_correction = charge_correction
         super(DipoleMoment, self).__init__(
             n_in,
             1,
@@ -242,12 +244,27 @@ class DipoleMoment(Atomwise):
         predicts dipole moment
         """
         positions = inputs[Properties.R]
-        atom_mask = inputs[Properties.atom_mask][:, :, None]
+        atom_mask = inputs[Properties.atom_mask]
+        print("[OUTPUT_MODULES] POSITION:", positions)
+
+        print("[OUTPUT_MODULES] ATOM_MASK:", atom_mask)
 
         # run prediction
-        charges = self.out_net(inputs) * atom_mask
+        charges = self.out_net(inputs) * atom_mask[:, :, None]
+
+        # charge correction
+        if self.charge_correction is not None:
+            total_charges = inputs[self.charge_correction]
+            charge_correction = total_charges - charges.sum(1)
+            charges = charges + (
+                charge_correction / atom_mask.sum(-1).unsqueeze(-1)
+            ).unsqueeze(-1)
+        
+        print("[OUTPUT_MODULES] CHARGES:", charges)
         yi = positions * charges
+        print("[OUTPUT_MODULES] yi:", yi)
         y = self.atom_pool(yi)
+        print("[OUTPUT_MODULES] y:", y)
 
         if self.predict_magnitude: y = torch.norm(y, dim=1, keepdim=True)
 
