@@ -29,8 +29,9 @@ class AtomisticModel(nn.Module):
         if type(output_modules) not in [list, nn.ModuleList]:  output_modules = [output_modules]
         if type(output_modules) == list:                       output_modules = nn.ModuleList(output_modules)
         self.output_modules = output_modules
+        
         # For gradients
-        self.requires_dr = any([om.derivative for om in self.output_modules])
+        self.requires_dr     = any([om.derivative for om in self.output_modules])
         # For stress tensor
         self.requires_stress = any([om.stress for om in self.output_modules])
 
@@ -38,8 +39,7 @@ class AtomisticModel(nn.Module):
         """
         Forward representation output through output modules.
         """
-        if self.requires_dr:
-            inputs[Properties.R].requires_grad_()
+        if self.requires_dr:      inputs[Properties.R].requires_grad_()
         if self.requires_stress:
             # Generate Cartesian displacement tensor
             displacement               = torch.zeros_like(inputs[Properties.cell]).to(inputs[Properties.R].device)

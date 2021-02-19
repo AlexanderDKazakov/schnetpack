@@ -186,6 +186,7 @@ class DipoleMoment(Atomwise):
 
     Args:
         n_in (int): input dimension of representation
+        n_out (int): output dimension of target property (default: 1)
         n_layers (int): number of layers in output network (default: 2)
         n_neurons (list of int or None): number of neurons in each layer of the output
             network. If `None`, divide neurons by 2 in each layer. (default: None)
@@ -212,6 +213,7 @@ class DipoleMoment(Atomwise):
     def __init__(
         self,
         n_in,
+        n_out             = 1,
         n_layers          = 2,
         n_neurons         = None,
         activation        = schnetpack.nn.activations.shifted_softplus,
@@ -226,17 +228,17 @@ class DipoleMoment(Atomwise):
         self.predict_magnitude = predict_magnitude
         self.charge_correction = charge_correction
         super(DipoleMoment, self).__init__(
-            n_in,
-            1,
-            "sum",
-            n_layers,
-            n_neurons,
-            activation    = activation,
-            mean          = mean,
-            stddev        = stddev,
-            outnet        = outnet,
-            property      = property,
-            contributions = contributions,
+            n_in             = n_in,
+            n_out            = n_out,
+            aggregation_mode = "sum",
+            n_layers         = n_layers,
+            n_neurons        = n_neurons,
+            activation       = activation,
+            mean             = mean,
+            stddev           = stddev,
+            outnet           = outnet,
+            property         = property,
+            contributions    = contributions,
         )
 
     def forward(self, inputs):
@@ -245,9 +247,6 @@ class DipoleMoment(Atomwise):
         """
         positions = inputs[Properties.R]
         atom_mask = inputs[Properties.atom_mask]
-        print("[OUTPUT_MODULES] POSITION:", positions)
-
-        print("[OUTPUT_MODULES] ATOM_MASK:", atom_mask)
 
         # run prediction
         charges = self.out_net(inputs) * atom_mask[:, :, None]
@@ -259,12 +258,9 @@ class DipoleMoment(Atomwise):
             charges = charges + (
                 charge_correction / atom_mask.sum(-1).unsqueeze(-1)
             ).unsqueeze(-1)
-        
-        print("[OUTPUT_MODULES] CHARGES:", charges)
+
         yi = positions * charges
-        print("[OUTPUT_MODULES] yi:", yi)
         y = self.atom_pool(yi)
-        print("[OUTPUT_MODULES] y:", y)
 
         if self.predict_magnitude: y = torch.norm(y, dim=1, keepdim=True)
 
